@@ -9,4 +9,5 @@ local/*
 .DS_Store
 
 config.py
+test/*
 
