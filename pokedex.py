@@ -30,7 +30,7 @@ def show(s=''):
     print s
 def debug(s=''):
     pass
-#     print '      |  %s' % s
+    print '      |  %s' % s
 def log(s):
 #     print 'LOG: %s' % s
     file(os.path.abspath(config.logFile), 'a').write(s+'\n')
@@ -59,7 +59,6 @@ class Backend(object):
         k.key = self.prefix + hash
         k.set_contents_from_filename(fn)
     def downloadBlobToFile(self, hash, fn):
-        # TODO: not tested
         debug('backend.downloadBlobToFile("%s", "%s")' % (hash, fn))
         self.lazyGetBucket()
         k = Key(self.bucket)
@@ -90,8 +89,10 @@ def getHashFromPokeballFn(pfn):
     return lines[-1].strip()
 
 def transferAttrs(fn1, fn2):
-    # TODO
-    pass
+    fn1stat = os.stat(fn1)
+    os.utime(fn2, (fn1stat.st_atime, fn1stat.st_mtime))
+    os.chmod(fn2, fn1stat.st_mode)
+    # TODO: chown?
 
 def catch(fn, backend, delete=True, recurse=False):
     if os.path.isdir(fn):
