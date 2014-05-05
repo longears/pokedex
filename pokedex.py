@@ -24,9 +24,10 @@ pokeball contents:
 a pokeball keeps all the same file metadata (dates, etc) as the original.
 """
 
-def debug(s):
+def debug(s=''):
+    return
     print '        %s' % s
-def show(s):
+def show(s=''):
     print s
 
 #================================================================================
@@ -77,8 +78,29 @@ def writePokeballAndTransferAttrs(fn, pfn, pokeballContents):
     # TODO: set modtime and permissions on pfn to match fn
     file(pfn,'w').write(pokeballContents)
 
-def catch(fn, backend, delete=True):
-    debug('catch("%s")' % fn)
+def catch(fn, backend, delete=True, recurse=False):
+    if isPokeballFilename(fn): return
+    if os.path.isdir(fn):
+        if not recurse:
+            show(' skipping dir: %s' % fn)
+            return
+        subs = [os.path.join(fn, s) for s in os.listdir(fn)]
+        subfiles = [s for s in subs if os.path.isfile(s)]
+        subdirs = [s for s in subs if os.path.isdir(s)]
+        debug('  is a directory.  recursing on files...')
+        for subfile in subfiles:
+            catch(subfile, backend, delete, recurse)
+        debug('  recursing on directories...')
+        for subdir in subdirs:
+            catch(subdir, backend, delete, recurse)
+        return
+    if os.path.islink(fn):
+        show('skipping link: %s' % fn)
+        return
+    if not os.path.isfile(fn):
+        show('skipping strange non-file: %s' % fn)
+        return
+    show('     catching: %s' % fn)
     hash = getFileHash(fn)
     pokeballContents = createPokeballContents(hash)
     if not backend.hasBlob(hash):
@@ -101,8 +123,17 @@ def quit():
 def showHelpAndQuit():
     show("""
 usage:
-    pokedex catch [flags] file [file2 file3 ...]
-    pokedex release [flags] file [file2 file3 ...]
+    pokedex catch [-r | -n] file [file2 file3 ...]
+
+        Upload the files to s3 and replace them with pokeball files.
+        Delete the original after upload unless -n is set.
+        Ignores directories unless -r is set.
+
+    pokedex release [-r] file [file2 file3 ...]
+
+        Given a list of pokeball files, replace them by downloading the original data.
+        Ignores directories unless -r is set.
+
     pokedex help
 
     flags:
@@ -128,12 +159,19 @@ if '-h' in FLAGS or '--help' in FLAGS:
 if CMD not in ['catch', 'release']:
     showHelpAndQuit()
 
+#--------------------------------------------------------
+# catch
+
 if CMD == 'catch':
+    if not ARGS: showHelpAndQuit()
+    show('connecting to s3')
     backend = Backend(config.bucketName, config.accessKey, config.secretKey)
+    show()
     for fn in ARGS:
-        show('catching %s' % fn)
-        catch(fn, backend, delete = not NO_DELETE)
-    show('done')
+        if fn.endswith('/') and fn != '/':
+            fn = fn[:-1]
+        if isPokeballFilename(fn): continue
+        catch(fn, backend, delete = not NO_DELETE, recurse = RECURSE)
 
 quit()
 
