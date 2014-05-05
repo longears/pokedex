@@ -86,6 +86,7 @@ def createPokeballContents(hash):
 
 def getHashFromPokeballFn(pfn):
     lines = file(pfn,'r').readlines()
+    assert lines[0].strip() == 'POKEBALL'
     return lines[-1].strip()
 
 def transferAttrs(fn1, fn2):
