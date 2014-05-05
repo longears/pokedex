@@ -161,8 +161,11 @@ def release(fn, backend, delete=True, recurse=False):
     show('     releasing: %s' % pfn)
     hash = getHashFromPokeballFn(pfn)
     fn = unpokeballifyFilename(pfn)
-    backend.downloadBlobToFile(hash, fn)
-    transferAttrs(pfn, fn)
+    # download to a temp file, transfer attrs, then rename into place
+    tempfn = fn + '__TEMP'
+    backend.downloadBlobToFile(hash, tempfn)
+    transferAttrs(pfn, tempfn)
+    os.rename(tempfn, fn)
     if delete:
         os.unlink(pfn)
 
