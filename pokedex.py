@@ -72,12 +72,23 @@ class Backend(object):
         # blank out the progress line so the next print covers it up
         sys.stdout.write('\r' + ' '*(len(progressPrefix)+10) + '\r')
         sys.stdout.flush()
-    def downloadBlobToFile(self, hash, fn):
+    def downloadBlobToFile(self, hash, fn, progressPrefix=''):
         debug('backend.downloadBlobToFile("%s", "%s")' % (hash, fn))
         self.lazyGetBucket()
         k = Key(self.bucket)
         k.key = self.prefix + hash
-        k.get_contents_to_filename(fn)
+        def cb(soFar,total):
+            # overwrite previous line
+            if total == 0:
+                pct = 100
+            else:
+                pct = soFar / total * 100
+            sys.stdout.write('\r' + progressPrefix + ' %5.1f %%' % pct + ' '*5)
+            sys.stdout.flush()
+        k.get_contents_to_filename(fn, cb=cb)
+        # blank out the progress line so the next print covers it up
+        sys.stdout.write('\r' + ' '*(len(progressPrefix)+10) + '\r')
+        sys.stdout.flush()
 
 #================================================================================
 
@@ -147,7 +158,7 @@ def catch(fn, backend, delete=True, recurse=False, progressPrefix=''):
     if delete:
         os.unlink(fn)
 
-def release(fn, backend, delete=True, recurse=False):
+def release(fn, backend, delete=True, recurse=False, progressPrefix=''):
     if not os.path.exists(fn):
         return
     if os.path.isdir(fn):
@@ -179,7 +190,7 @@ def release(fn, backend, delete=True, recurse=False):
     fn = unpokeballifyFilename(pfn)
     # download to a temp file, transfer attrs, then rename into place
     tempfn = fn + '__TEMP'
-    backend.downloadBlobToFile(hash, tempfn)
+    backend.downloadBlobToFile(hash, tempfn, progressPrefix=progressPrefix)
     transferAttrs(pfn, tempfn)
     os.rename(tempfn, fn)
     if delete:
@@ -254,7 +265,7 @@ if CMD == 'release':
         # remove trailing slashes
         if fn.endswith('/') and fn != '/': fn = fn[:-1]
         progressPrefix = '%s/%s    ' % (ii, len(ARGS))
-        release(fn, backend, delete=(not NO_DELETE), recurse=RECURSE)
+        release(fn, backend, delete=(not NO_DELETE), recurse=RECURSE, progressPrefix=progressPrefix)
 
 quit()
 
