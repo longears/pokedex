@@ -190,9 +190,14 @@ def release(fn, backend, delete=True, recurse=False, progressPrefix=''):
     fn = unpokeballifyFilename(pfn)
     # download to a temp file, transfer attrs, then rename into place
     tempfn = fn + '__TEMP'
-    backend.downloadBlobToFile(hash, tempfn, progressPrefix=progressPrefix)
-    transferAttrs(pfn, tempfn)
-    os.rename(tempfn, fn)
+    try:
+        backend.downloadBlobToFile(hash, tempfn, progressPrefix=progressPrefix)
+        transferAttrs(pfn, tempfn)
+        os.rename(tempfn, fn)
+    finally:
+        # make sure temp file gets deleted (for example, from a control-C during upload)
+        if os.path.exists(tempfn):
+            os.unlink(tempfn)
     if delete:
         os.unlink(pfn)
 
