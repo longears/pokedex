@@ -3,6 +3,7 @@
 import hashlib
 import os
 from boto.s3.connection import S3Connection
+import config
 
 """
 poke-catch file [file file ...]
@@ -58,7 +59,7 @@ def release(fn, backend):
 
 
 
-backend = Backend()
+backend = Backend(config.accessKey, config.secretKey)
 catch('./test', backend)
 
 
