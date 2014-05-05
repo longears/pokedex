@@ -89,6 +89,16 @@ class Backend(object):
         # blank out the progress line so the next print covers it up
         sys.stdout.write('\r' + ' '*(len(progressPrefix)+10) + '\r')
         sys.stdout.flush()
+    def printStats(self):
+        show('fetching...')
+        self.lazyGetBucket()
+        bytes = 0
+        for key in self.bucket.list():
+            bytes += key.size
+        monthlyCost = 0.03 * bytes / (1024*1024*1024)
+        show()
+        show('total data in s3: %s M' % int(bytes / (1024 * 1024)))
+        show('                  $ %0.5f / month' % monthlyCost)
 
 #================================================================================
 
@@ -222,6 +232,10 @@ usage:
         Given a list of pokeball files, replace them by downloading the original data.
         Ignores directories unless -r is set.
 
+    pokedex stats
+
+        Show the total size of data in s3.
+
     pokedex help
 
     flags:
@@ -246,15 +260,16 @@ VERBOSE = '-v' in FLAGS or '--verbose' in FLAGS
 
 if '-h' in FLAGS or '--help' in FLAGS:
     showHelpAndQuit()
-if CMD not in ['catch', 'release']:
+if CMD not in ['catch', 'release', 'stats']:
     showHelpAndQuit()
 
 #--------------------------------------------------------
 # catch
 
+backend = Backend(config.bucketName, config.accessKey, config.secretKey)
+
 if CMD == 'catch':
     if not ARGS: showHelpAndQuit()
-    backend = Backend(config.bucketName, config.accessKey, config.secretKey)
     # remove the pokeballs in advance to help us get a more accurate progress bar count
     ARGS = [a for a in ARGS if not isPokeballFilename(a)]
     for ii,fn in enumerate(ARGS):
@@ -265,12 +280,14 @@ if CMD == 'catch':
 
 if CMD == 'release':
     if not ARGS: showHelpAndQuit()
-    backend = Backend(config.bucketName, config.accessKey, config.secretKey)
     for ii,fn in enumerate(ARGS):
         # remove trailing slashes
         if fn.endswith('/') and fn != '/': fn = fn[:-1]
         progressPrefix = '%s/%s    ' % (ii, len(ARGS))
         release(fn, backend, delete=(not NO_DELETE), recurse=RECURSE, progressPrefix=progressPrefix)
+
+if CMD == 'stats':
+    backend.printStats()
 
 quit()
 
