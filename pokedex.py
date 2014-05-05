@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from __future__ import division
 import hashlib
 import os
 import sys
@@ -54,12 +55,23 @@ class Backend(object):
         self.lazyGetBucket()
         key = self.prefix + hash
         return bool(self.bucket.get_key(key))
-    def uploadBlobFromFile(self, hash, fn):
+    def uploadBlobFromFile(self, hash, fn, progressPrefix=''):
         debug('backend.uploadBlobFromFile("%s", "%s")' % (hash, fn))
         self.lazyGetBucket()
         k = Key(self.bucket)
         k.key = self.prefix + hash
-        k.set_contents_from_filename(fn)
+        def cb(soFar,total):
+            # overwrite previous line
+            if total == 0:
+                pct = 100
+            else:
+                pct = soFar / total * 100
+            sys.stdout.write('\r' + progressPrefix + ' %5.1f %%' % pct + ' '*5)
+            sys.stdout.flush()
+        k.set_contents_from_filename(fn, cb=cb)
+        # blank out the progress line so the next print covers it up
+        sys.stdout.write('\r' + ' '*(len(progressPrefix)+10) + '\r')
+        sys.stdout.flush()
     def downloadBlobToFile(self, hash, fn):
         debug('backend.downloadBlobToFile("%s", "%s")' % (hash, fn))
         self.lazyGetBucket()
@@ -97,7 +109,9 @@ def transferAttrs(fn1, fn2):
     os.chmod(fn2, fn1stat.st_mode)
     # TODO: chown?
 
-def catch(fn, backend, delete=True, recurse=False):
+def catch(fn, backend, delete=True, recurse=False, progressPrefix=''):
+    if not os.path.exists(fn):
+        return
     if os.path.isdir(fn):
         if not recurse:
             show(' skipping dir: %s' % fn)
@@ -125,7 +139,7 @@ def catch(fn, backend, delete=True, recurse=False):
     hash = getFileHash(fn)
     pokeballContents = createPokeballContents(hash)
     if not backend.hasBlob(hash):
-        backend.uploadBlobFromFile(hash, fn)
+        backend.uploadBlobFromFile(hash, fn, progressPrefix=progressPrefix)
     log('%s catch %s %s' % (int(time.time()*1000), hash, os.path.abspath(fn)))
     pfn = pokeballifyFilename(fn)
     file(pfn, 'w').write(pokeballContents)
@@ -134,6 +148,8 @@ def catch(fn, backend, delete=True, recurse=False):
         os.unlink(fn)
 
 def release(fn, backend, delete=True, recurse=False):
+    if not os.path.exists(fn):
+        return
     if os.path.isdir(fn):
         if not recurse:
             show(' skipping dir: %s' % fn)
@@ -223,18 +239,22 @@ if CMD not in ['catch', 'release']:
 if CMD == 'catch':
     if not ARGS: showHelpAndQuit()
     backend = Backend(config.bucketName, config.accessKey, config.secretKey)
-    for fn in ARGS:
+    # remove the pokeballs in advance to help us get a more accurate progress bar count
+    ARGS = [a for a in ARGS if not isPokeballFilename(a)]
+    for ii,fn in enumerate(ARGS):
         # remove trailing slashes
         if fn.endswith('/') and fn != '/': fn = fn[:-1]
-        catch(fn, backend, delete = not NO_DELETE, recurse = RECURSE)
+        progressPrefix = '%s/%s    ' % (ii, len(ARGS))
+        catch(fn, backend, delete=(not NO_DELETE), recurse=RECURSE, progressPrefix=progressPrefix)
 
 if CMD == 'release':
     if not ARGS: showHelpAndQuit()
     backend = Backend(config.bucketName, config.accessKey, config.secretKey)
-    for fn in ARGS:
+    for ii,fn in enumerate(ARGS):
         # remove trailing slashes
         if fn.endswith('/') and fn != '/': fn = fn[:-1]
-        release(fn, backend, delete = not NO_DELETE, recurse = RECURSE)
+        progressPrefix = '%s/%s    ' % (ii, len(ARGS))
+        release(fn, backend, delete=(not NO_DELETE), recurse=RECURSE)
 
 quit()
 
