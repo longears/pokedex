@@ -1,9 +1,11 @@
 
-bucketName = '...'
+import os
+
+bucketName = 'pokedex'
 accessKey = '...'
 secretKey = '...'
 
 pokeballSuffix = '__pokeball'
 
-log = '~/.pokedex_log'
+logFile = os.path.join(os.environ['HOME'], '.pokedex_log')
 

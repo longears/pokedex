@@ -26,15 +26,14 @@ pokeball contents:
 a pokeball keeps all the same file metadata (dates, etc) as the original.
 """
 
-def debug(s=''):
-    return
-    print '      |  %s' % s
 def show(s=''):
     print s
+def debug(s=''):
+    pass
+#     print '      |  %s' % s
 def log(s):
-    return
-    # TODO
-    print 'LOG: %s' % s
+#     print 'LOG: %s' % s
+    file(os.path.abspath(config.logFile), 'a').write(s+'\n')
 
 #================================================================================
 
@@ -123,7 +122,7 @@ def catch(fn, backend, delete=True, recurse=False):
     pokeballContents = createPokeballContents(hash)
     if not backend.hasBlob(hash):
         backend.uploadBlobFromFile(hash, fn)
-    log('%s %s %s' % (int(time.time()*1000), hash, os.path.abspath(fn)))
+    log('%s catch %s %s' % (int(time.time()*1000), hash, os.path.abspath(fn)))
     pfn = pokeballifyFilename(fn)
     file(pfn, 'w').write(pokeballContents)
     transferAttrs(fn, pfn)
