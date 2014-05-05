@@ -68,7 +68,7 @@ class Backend(object):
                 pct = soFar / total * 100
             sys.stdout.write('\r' + progressPrefix + ' %5.1f %%' % pct + ' '*5)
             sys.stdout.flush()
-        k.set_contents_from_filename(fn, cb=cb)
+        k.set_contents_from_filename(fn, cb=cb, encrypt_key=True)
         # blank out the progress line so the next print covers it up
         sys.stdout.write('\r' + ' '*(len(progressPrefix)+10) + '\r')
         sys.stdout.flush()
