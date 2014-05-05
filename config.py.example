@@ -3,3 +3,7 @@ bucketName = '...'
 accessKey = '...'
 secretKey = '...'
 
+pokeballSuffix = '__pokeball'
+
+log = '~/.pokedex_log'
+

@@ -3,6 +3,8 @@
 import hashlib
 import os
 import sys
+import time
+
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
 
@@ -26,9 +28,13 @@ a pokeball keeps all the same file metadata (dates, etc) as the original.
 
 def debug(s=''):
     return
-    print '        %s' % s
+    print '      |  %s' % s
 def show(s=''):
     print s
+def log(s):
+    return
+    # TODO
+    print 'LOG: %s' % s
 
 #================================================================================
 
@@ -53,9 +59,9 @@ class Backend(object):
         k = Key(self.bucket)
         k.key = self.prefix + hash
         k.set_contents_from_filename(fn)
-    def downloadBlobToFile(self, fn):
+    def downloadBlobToFile(self, hash, fn):
         # TODO: not tested
-        debug('backend.downloadBlobToFile("%s")' % fn)
+        debug('backend.downloadBlobToFile("%s", "%s")' % (hash, fn))
         self.lazyGetBucket()
         k = Key(self.bucket)
         k.key = self.prefix + hash
@@ -64,14 +70,14 @@ class Backend(object):
 #================================================================================
 
 def pokeballifyFilename(fn):
-    return fn + '__pokeball'
+    return fn + config.pokeballSuffix
 
 def unpokeballifyFilename(pfn):
     assert isPokeballFilename(pfn)
-    return pfn.rsplit('__pokeball', 1)[0]
+    return pfn.rsplit(config.pokeballSuffix, 1)[0]
 
 def isPokeballFilename(pfn):
-    return pfn.endswith('__pokeball')
+    return pfn.endswith(config.pokeballSuffix)
 
 def getFileHash(fn):
     data = file(fn, 'rb').read()
@@ -80,12 +86,15 @@ def getFileHash(fn):
 def createPokeballContents(hash):
     return 'POKEBALL\n' + hash + '\n'
 
-def writePokeballAndTransferAttrs(fn, pfn, pokeballContents):
-    # TODO: set modtime and permissions on pfn to match fn
-    file(pfn,'w').write(pokeballContents)
+def getHashFromPokeballFn(pfn):
+    lines = file(pfn,'r').readlines()
+    return lines[-1].strip()
+
+def transferAttrs(fn1, fn2):
+    # TODO
+    pass
 
 def catch(fn, backend, delete=True, recurse=False):
-    if isPokeballFilename(fn): return
     if os.path.isdir(fn):
         if not recurse:
             show(' skipping dir: %s' % fn)
@@ -100,6 +109,7 @@ def catch(fn, backend, delete=True, recurse=False):
         for subdir in subdirs:
             catch(subdir, backend, delete, recurse)
         return
+    if isPokeballFilename(fn): return
     if os.path.islink(fn):
         show('skipping link: %s' % fn)
         return
@@ -113,13 +123,45 @@ def catch(fn, backend, delete=True, recurse=False):
     pokeballContents = createPokeballContents(hash)
     if not backend.hasBlob(hash):
         backend.uploadBlobFromFile(hash, fn)
+    log('%s %s %s' % (int(time.time()*1000), hash, os.path.abspath(fn)))
     pfn = pokeballifyFilename(fn)
-    writePokeballAndTransferAttrs(fn, pfn, pokeballContents)
+    file(pfn, 'w').write(pokeballContents)
+    transferAttrs(fn, pfn)
     if delete:
         os.unlink(fn)
 
-def release(fn, backend):
-    pass
+def release(fn, backend, delete=True, recurse=False):
+    if os.path.isdir(fn):
+        if not recurse:
+            show(' skipping dir: %s' % fn)
+            return
+        subs = [os.path.join(fn, s) for s in os.listdir(fn)]
+        subfiles = [s for s in subs if os.path.isfile(s)]
+        subdirs = [s for s in subs if os.path.isdir(s)]
+        debug('  is a directory.  recursing on files...')
+        for subfile in subfiles:
+            release(subfile, backend, delete, recurse)
+        debug('  recursing on directories...')
+        for subdir in subdirs:
+            release(subdir, backend, delete, recurse)
+        return
+    if not isPokeballFilename(fn): return
+    if os.path.islink(fn):
+        show('skipping link: %s' % fn)
+        return
+    if not os.path.isfile(fn):
+        show('skipping strange non-file: %s' % fn)
+        return
+
+    # normal single-file releasing
+    pfn = fn
+    show('     releasing: %s' % pfn)
+    hash = getHashFromPokeballFn(pfn)
+    fn = unpokeballifyFilename(pfn)
+    backend.downloadBlobToFile(hash, fn)
+    transferAttrs(pfn, fn)
+    if delete:
+        os.unlink(pfn)
 
 #================================================================================
 # MAIN
@@ -177,6 +219,14 @@ if CMD == 'catch':
         # remove trailing slashes
         if fn.endswith('/') and fn != '/': fn = fn[:-1]
         catch(fn, backend, delete = not NO_DELETE, recurse = RECURSE)
+
+if CMD == 'release':
+    if not ARGS: showHelpAndQuit()
+    backend = Backend(config.bucketName, config.accessKey, config.secretKey)
+    for fn in ARGS:
+        # remove trailing slashes
+        if fn.endswith('/') and fn != '/': fn = fn[:-1]
+        release(fn, backend, delete = not NO_DELETE, recurse = RECURSE)
 
 quit()
 
