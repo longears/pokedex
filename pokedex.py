@@ -26,11 +26,13 @@ pokeball contents:
 a pokeball keeps all the same file metadata (dates, etc) as the original.
 """
 
+VERBOSE = False
+
 def show(s=''):
     print s
 def debug(s=''):
-    pass
-    print '      |  %s' % s
+    if VERBOSE:
+        print '      |  %s' % s
 def log(s):
 #     print 'LOG: %s' % s
     file(os.path.abspath(config.logFile), 'a').write(s+'\n')
@@ -41,7 +43,7 @@ class Backend(object):
     def __init__(self, bucketName, accessKey, secretKey):
         debug('backend.__init__: connecting to bucket "%s"' % bucketName)
         self.bucketName = bucketName
-        self.conn = S3Connection(accessKey, secretKey)
+        self.conn = S3Connection(accessKey, secretKey, host='s3-us-west-2.amazonaws.com')
         self.bucket = None
         self.prefix = 'blobs/'
     def lazyGetBucket(self):
@@ -190,6 +192,7 @@ usage:
     flags:
         -r --recurse
         -n --no-delete
+        -v --verbose
     """)
     quit()
 
@@ -204,6 +207,7 @@ ARGS = [x for x in ARGS if not x.startswith('-')]
 
 RECURSE = '-r' in FLAGS or '--recurse' in FLAGS
 NO_DELETE = '-n' in FLAGS or '--no-delete' in FLAGS
+VERBOSE = '-v' in FLAGS or '--verbose' in FLAGS
 
 if '-h' in FLAGS or '--help' in FLAGS:
     showHelpAndQuit()
