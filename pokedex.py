@@ -97,7 +97,7 @@ class Backend(object):
             bytes += key.size
         monthlyCost = 0.03 * bytes / (1024*1024*1024)
         show()
-        show('total data in s3: %s M' % int(bytes / (1024 * 1024)))
+        show('total data in s3: %s M' % int(bytes / (1024 * 1024) + 0.5))
         show('                  $ %0.5f / month' % monthlyCost)
 
 #================================================================================
@@ -118,6 +118,11 @@ def getFileHash(fn):
 
 def createPokeballContents(hash, bytes):
     return 'POKEBALL\n' + str(bytes) + '\n' + hash + '\n'
+
+def getBytesFromPokeballFn(pfn):
+    lines = file(pfn,'r').readlines()
+    assert lines[0].strip() == 'POKEBALL'
+    return int(lines[1].strip())
 
 def getHashFromPokeballFn(pfn):
     lines = file(pfn,'r').readlines()
@@ -212,6 +217,36 @@ def release(fn, backend, delete=True, recurse=False, progressPrefix=''):
     if delete:
         os.unlink(pfn)
 
+def bytesIn(fn, recurse=False):
+    if not os.path.exists(fn):
+        return 0
+    if os.path.isdir(fn):
+        if not recurse:
+            show(' skipping dir: %s' % fn)
+            return 0
+        subs = [os.path.join(fn, s) for s in os.listdir(fn)]
+        subfiles = [s for s in subs if os.path.isfile(s)]
+        subdirs = [s for s in subs if os.path.isdir(s)]
+        debug('  is a directory.  recursing on files...')
+        bytes = 0
+        for subfile in subfiles:
+            bytes += bytesIn(subfile, recurse)
+        debug('  recursing on directories...')
+        for subdir in subdirs:
+            bytes += bytesIn(subdir, recurse)
+        return bytes
+    if not isPokeballFilename(fn): return 0
+    if os.path.islink(fn):
+        show('skipping link: %s' % fn)
+        return 0
+    if not os.path.isfile(fn):
+        show('skipping strange non-file: %s' % fn)
+        return 0
+
+    # normal single-file releasing
+    pfn = fn
+    return getBytesFromPokeballFn(pfn)
+
 #================================================================================
 # MAIN
 
@@ -233,9 +268,14 @@ usage:
         Given a list of pokeball files, replace them by downloading the original data.
         Ignores directories unless -r is set.
 
-    pokedex stats
+    pokedex cost
 
         Show the total size of data in s3.
+
+    pokedex du [-r] [file file file...]
+
+        Show the total space required to release all the pokeballs in the given local paths.
+        If no flags or files are specified, run recursively from the current directory.
 
     pokedex help
 
@@ -261,7 +301,7 @@ VERBOSE = '-v' in FLAGS or '--verbose' in FLAGS
 
 if '-h' in FLAGS or '--help' in FLAGS:
     showHelpAndQuit()
-if CMD not in ['catch', 'release', 'stats']:
+if CMD not in ['catch', 'release', 'cost', 'du']:
     showHelpAndQuit()
 
 #--------------------------------------------------------
@@ -287,8 +327,17 @@ if CMD == 'release':
         progressPrefix = '%s/%s    ' % (ii, len(ARGS))
         release(fn, backend, delete=(not NO_DELETE), recurse=RECURSE, progressPrefix=progressPrefix)
 
-if CMD == 'stats':
+if CMD == 'cost':
     backend.printStats()
+
+if CMD == 'du':
+    if not ARGS:
+        ARGS = ['.']
+        RECURSE = True
+    bytes = 0
+    for fn in ARGS:
+        bytes += bytesIn(fn, recurse=RECURSE)
+    show('    %s M' % int(bytes / (1024 * 1024) + 0.5))
 
 quit()
 
