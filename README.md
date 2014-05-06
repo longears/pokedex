@@ -3,9 +3,11 @@ Pokedex
 
 A way to shrink down files when you don't need them.
 
-*This is alpha code!  It might lose your precious data!*
+**Warnings**
+* *This is alpha code!  It might lose your precious data!*
+* *Only tested on OS X*
 
-**Uploading files**
+**Uploading a file**
 
 When your laptop is almost out of space, squeeze some files into pokeballs:
 
@@ -13,11 +15,9 @@ When your laptop is almost out of space, squeeze some files into pokeballs:
 $ pokedex catch myfile.psd
 ```
 
-...Which will upload the file to S3.  It then deletes the local copy and replaces it with tiny placeholder file called `myfile.psd__pokeball`.
+...Which will upload the file to S3.  It then deletes the local copy and replaces it with tiny placeholder file called `myfile.psd__pokeball`.  The pokeball file is basically a link to get the file back, so don't lose it.
 
-**Getting them back**
-
-The pokeball file contains the hash of the file so that we can get it back later, by doing this:
+**Getting it back**
 
 ```
 $ pokedex release myfile.psd__pokeball
