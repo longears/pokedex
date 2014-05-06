@@ -116,8 +116,8 @@ def getFileHash(fn):
     data = file(fn, 'rb').read()
     return 'sha256_' + hashlib.sha256(data).hexdigest()
 
-def createPokeballContents(hash):
-    return 'POKEBALL\n' + hash + '\n'
+def createPokeballContents(hash, bytes):
+    return 'POKEBALL\n' + str(bytes) + '\n' + hash + '\n'
 
 def getHashFromPokeballFn(pfn):
     lines = file(pfn,'r').readlines()
@@ -158,7 +158,8 @@ def catch(fn, backend, delete=True, recurse=False, progressPrefix=''):
     # normal single-file catching
     show('     catching: %s' % fn)
     hash = getFileHash(fn)
-    pokeballContents = createPokeballContents(hash)
+    bytes = os.path.getsize(fn)
+    pokeballContents = createPokeballContents(hash, bytes)
     if not backend.hasBlob(hash):
         backend.uploadBlobFromFile(hash, fn, progressPrefix=progressPrefix)
     log('%s catch %s %s' % (int(time.time()*1000), hash, os.path.abspath(fn)))
