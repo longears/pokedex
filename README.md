@@ -75,7 +75,6 @@ To do
 * Write tests
 * Make a file-based backend to let you keep your files on an external drive
 * Sync between backends
-* Make a FUSE filesystem that displays pokeballs as real files, fetched on demand
 * Consider giving each file a unique id instead of using a hash -- that would allow
 us to delete files from S3 after downloading because we would know no other pokeballs
 are using the same id
